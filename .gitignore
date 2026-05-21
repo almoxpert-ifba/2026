@@ -42,6 +42,21 @@ apps/web/.env
 # ──────────────────────────────────────────────────────────────
 docker-compose.dev.yml
 docker-compose.override.yml
+docker-compose.yml
+
+# ──────────────────────────────────────────────────────────────
+# Lock files (use localmente, não versione)
+# Cada desenvolvedor terá versões diferentes conforme suas dependências
+# ──────────────────────────────────────────────────────────────
+package-lock.json
+*/package-lock.json
+**/package-lock.json
+yarn.lock
+*/yarn.lock
+**/yarn.lock
+pnpm-lock.yaml
+*/pnpm-lock.yaml
+**/pnpm-lock.yaml
 
 # ──────────────────────────────────────────────────────────────
 # Logs
