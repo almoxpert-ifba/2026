@@ -154,4 +154,9 @@ export const usersService = {
     });
     return data;
   },
+
+  async resetPassword(id: number): Promise<{ defaultPassword: string }> {
+    const { data } = await api.post(`/users/${id}/reset-password`);
+    return data;
+  },
 };

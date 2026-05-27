@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Users, Plus, Trash2, ShieldCheck, GraduationCap, Pencil,
-  Download, Upload, CheckCircle2, XCircle, AlertTriangle,
+  Download, Upload, CheckCircle2, XCircle, AlertTriangle, KeyRound,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -99,9 +99,10 @@ export const UsersPage: React.FC = () => {
   const [page, setPage]             = useState(1);
   const [typeFilter, setTypeFilter] = useState<'all' | 'admin' | 'student'>('all');
   const [filters, setFilters]       = useState<UserFiltersState>(defaultFilters);
-  const [createModal, setCreateModal] = useState(false);
-  const [deleteUser, setDeleteUser]   = useState<User | null>(null);
-  const [editUserId, setEditUserId]   = useState<number | null>(null);
+  const [createModal, setCreateModal]         = useState(false);
+  const [deleteUser, setDeleteUser]           = useState<User | null>(null);
+  const [editUserId, setEditUserId]           = useState<number | null>(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
 
   // ── Import state ──
   const [importOpen, setImportOpen]         = useState(false);
@@ -229,6 +230,15 @@ export const UsersPage: React.FC = () => {
     onError: () => toast.error('Erro ao remover usuário.'),
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: (id: number) => usersService.resetPassword(id),
+    onSuccess: () => {
+      toast.success('Senha resetada para o padrão. O usuário receberá e-mail de confirmação.');
+      setResetPasswordUser(null);
+    },
+    onError: () => toast.error('Erro ao resetar senha.'),
+  });
+
   const onEditSubmit = (d: EditForm) => {
     const dto: UpdateUserDto = {
       name:     d.name,
@@ -338,12 +348,21 @@ export const UsersPage: React.FC = () => {
         <div className="flex items-center gap-1 justify-end">
           <button
             onClick={() => setEditUserId(Number(u.id))}
+            title="Editar"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
           >
             <Pencil size={14} />
           </button>
           <button
+            onClick={() => setResetPasswordUser(u)}
+            title="Resetar senha"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
+          >
+            <KeyRound size={14} />
+          </button>
+          <button
             onClick={() => setDeleteUser(u)}
+            title="Remover"
             className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500Bg transition-colors"
           >
             <Trash2 size={14} />
@@ -774,6 +793,16 @@ export const UsersPage: React.FC = () => {
         description={`Tem certeza que deseja remover "${deleteUser?.name}"?`}
         confirmLabel="Remover"
         loading={deleteMutation.isPending}
+      />
+
+      <ConfirmModal
+        open={!!resetPasswordUser}
+        onClose={() => setResetPasswordUser(null)}
+        onConfirm={() => resetPasswordUser && resetPasswordMutation.mutate(resetPasswordUser.id)}
+        title="Resetar Senha"
+        description={`Resetar a senha de "${resetPasswordUser?.name}" para o padrão (${resetPasswordUser?.userType === 'student' ? 'ifba.matrícula' : 'admin.email'})? O usuário precisará criar uma nova senha ao fazer login.`}
+        confirmLabel="Resetar Senha"
+        loading={resetPasswordMutation.isPending}
       />
     </div>
   );

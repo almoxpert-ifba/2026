@@ -51,6 +51,7 @@ export interface User {
   email: string;
   userType: UserType;
   isActive: boolean;
+  mustChangePassword?: boolean;
   createdAt: string;
   updatedAt?: string;
   studentProfile?: StudentProfile;

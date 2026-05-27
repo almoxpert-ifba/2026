@@ -79,18 +79,29 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
 
     {/* User Footer */}
     <div className={cn('border-t border-white/10 pt-3 pb-4', collapsed ? 'px-2' : 'px-3')}>
-      {!collapsed && user && (
-        <div className="flex items-center gap-2.5 px-2 py-2 mb-2">
+      {user && (
+        <NavLink
+          to="/profile"
+          onClick={onMobileClose}
+          className={({ isActive }) =>
+            `flex items-center gap-2.5 px-2 py-2 mb-2 rounded-xl transition-colors cursor-pointer ${
+              isActive ? 'bg-white/10' : 'hover:bg-white/5'
+            } ${collapsed ? 'justify-center' : ''}`
+          }
+          title={collapsed ? user.name : undefined}
+        >
           <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {getInitials(user.name)}
           </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-white truncate">{user.name}</p>
-            <p className="text-[10px] text-white/50">
-              {user.userType === 'admin' ? 'Administrador' : 'Estudante'}
-            </p>
-          </div>
-        </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{user.name}</p>
+              <p className="text-[10px] text-white/50">
+                {user.userType === 'admin' ? 'Administrador' : 'Estudante'}
+              </p>
+            </div>
+          )}
+        </NavLink>
       )}
       <button
         onClick={onLogout}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -38,8 +38,8 @@ export const LoginPage: React.FC = () => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
-      setAuth(res.accessToken, user);
-      navigate('/dashboard');
+      setAuth(res.accessToken, user, res.mustChangePassword);
+      navigate(res.mustChangePassword ? '/force-change-password' : '/dashboard');
     } catch {
       setApiError('E-mail ou senha incorretos.');
     }
@@ -128,6 +128,12 @@ export const LoginPage: React.FC = () => {
             <Button type="submit" className="w-full mt-2" loading={isSubmitting} size="lg">
               Entrar no sistema
             </Button>
+
+            <div className="text-center mt-3">
+              <Link to="/forgot-password" className="text-xs text-gray-400 hover:text-blue-600 transition-colors">
+                Esqueceu sua senha?
+              </Link>
+            </div>
           </form>
 
           <p className="text-center text-xs text-gray-300 mt-12">

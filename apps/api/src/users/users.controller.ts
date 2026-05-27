@@ -146,4 +146,14 @@ export class UsersController {
   deactivate(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.deactivate(id);
   }
+
+  @Post(':id/reset-password')
+  @Roles(UserType.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resetar senha para o padrão', description: 'Admin redefine a senha do usuário para o padrão (ifba.matricula ou admin.email) e marca mustChangePassword = true.' })
+  @ApiParam({ name: 'id', type: Number, example: 1 })
+  @ApiResponse({ status: 200, description: 'Senha resetada.' })
+  resetPassword(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.resetPasswordToDefault(id);
+  }
 }

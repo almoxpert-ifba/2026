@@ -124,7 +124,10 @@ export class UsersService {
   }
 
   async findByEmail(email: string) {
-    return this.usersRepo.findOne({ where: { email } });
+    return this.usersRepo.findOne({
+      where: { email },
+      relations: ['studentProfile'],
+    });
   }
 
   async create(dto: CreateUserDto) {
@@ -209,5 +212,31 @@ export class UsersService {
     const user = await this.findOne(id);
     user.isActive = false;
     return this.usersRepo.save(user);
+  }
+
+  getDefaultPassword(user: User): string {
+    if (user.userType === UserType.STUDENT) {
+      const reg = (user as any).studentProfile?.registrationNumber ?? 'aluno';
+      return `ifba.${reg}`;
+    }
+    return `admin.${user.email}`;
+  }
+
+  async resetPasswordToDefault(id: number): Promise<{ defaultPassword: string }> {
+    const user = await this.usersRepo.findOne({
+      where: { id },
+      relations: ['studentProfile'],
+    });
+    if (!user) throw new NotFoundException(`User #${id} not found`);
+    const defaultPassword = this.getDefaultPassword(user);
+    user.passwordHash        = await bcrypt.hash(defaultPassword, 10);
+    user.mustChangePassword  = true;
+    await this.usersRepo.save(user);
+    return { defaultPassword };
+  }
+
+  async updatePassword(id: number, newPassword: string): Promise<void> {
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.usersRepo.update(id, { passwordHash, mustChangePassword: false });
   }
 }
