@@ -136,8 +136,7 @@ export class ShipmentsService {
       );
     }
 
-    shipment.notes = dto.notes ?? shipment.notes;
-    await this.shipmentsRepo.save(shipment);
+    await this.shipmentsRepo.update(id, { notes: dto.notes ?? shipment.notes });
 
     return this.findOne(id);
   }

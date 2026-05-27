@@ -132,4 +132,26 @@ export const usersService = {
   async remove(id: number): Promise<void> {
     await api.delete(`/users/${id}`);
   },
+
+  downloadTemplate(): string {
+    return `${api.defaults.baseURL}/users/import/template`;
+  },
+
+  async validateImport(file: File): Promise<import('../types').ImportValidationResult> {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await api.post('/users/import/validate', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+
+  async bulkImport(file: File): Promise<import('../types').ImportResult> {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await api.post('/users/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
 };

@@ -1,6 +1,9 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail, IsEnum, IsOptional, IsString, MinLength,
+  IsArray, IsNumber, Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserType } from 'shared';
+import { UserType, StudentAid, IntakeForm, EducationLevel, StudentModality } from 'shared';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'João Silva', description: 'Nome completo' })
@@ -35,6 +38,52 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   socialPrograms?: string;
+
+  @ApiPropertyOptional({ example: 'VC', description: 'Campus (somente estudantes)' })
+  @IsOptional()
+  @IsString()
+  campus?: string;
+
+  @ApiPropertyOptional({ enum: EducationLevel, description: 'Nível de ensino (somente estudantes)' })
+  @IsOptional()
+  @IsEnum(EducationLevel)
+  educationLevel?: EducationLevel;
+
+  @ApiPropertyOptional({ enum: StudentModality, description: 'Modalidade do curso (somente estudantes)' })
+  @IsOptional()
+  @IsEnum(StudentModality)
+  modality?: StudentModality;
+
+  @ApiPropertyOptional({
+    type: [String],
+    enum: IntakeForm,
+    description: 'Formas de ingresso (somente estudantes)',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(IntakeForm, { each: true })
+  intakeForms?: IntakeForm[];
+
+  @ApiPropertyOptional({
+    type: [String],
+    enum: StudentAid,
+    description: 'Auxílios aprovados (somente estudantes)',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsEnum(StudentAid, { each: true })
+  aids?: StudentAid[];
+
+  @ApiPropertyOptional({ example: 'Almoço', description: 'Tipos de refeição do auxílio alimentação' })
+  @IsOptional()
+  @IsString()
+  mealTypes?: string;
+
+  @ApiPropertyOptional({ example: 27.5, description: 'Pontuação no barema (somente estudantes)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  baremScore?: number;
 
   // ── Admin-only ────────────────────────────────────────────
   @ApiPropertyOptional({ example: 'Assistente Social', description: 'Cargo (somente administradores)' })

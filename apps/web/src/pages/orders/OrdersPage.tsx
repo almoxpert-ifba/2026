@@ -17,7 +17,7 @@ import { itemsService } from '../../services/itemsService';
 import { useToast } from '../../components/ui/Toast';
 import { useAuthStore } from '../../store/authStore';
 import { formatDateTime, orderStatusLabel, orderStatusColor } from '../../utils';
-import type { Order, OrderStatus, Item } from '../../types';
+import type { Order, OrderStatus, Item, StudentProfile } from '../../types';
 
 const CLOTHING_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'GGG'];
 const SHOE_SIZES = ['33','34','35','36','37','38','39','40','41','42','43','44','45'];
@@ -29,6 +29,80 @@ function getSizeOptions(item?: Item) {
 }
 
 type OutletCtx = { onMenuClick: () => void };
+
+function StudentInfoPanel({ profile }: { profile: StudentProfile }) {
+  return (
+    <div className="bg-blue-50 rounded-xl p-4 space-y-3">
+      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider">Dados do Aluno</p>
+
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+        {profile.registrationNumber && (
+          <div>
+            <span className="text-gray-400">Matrícula</span>
+            <p className="font-mono font-medium text-gray-700">{profile.registrationNumber}</p>
+          </div>
+        )}
+        {profile.campus && (
+          <div>
+            <span className="text-gray-400">Campus</span>
+            <p className="font-medium text-gray-700">{profile.campus}</p>
+          </div>
+        )}
+        {profile.course && (
+          <div className="col-span-2">
+            <span className="text-gray-400">Curso</span>
+            <p className="font-medium text-gray-700">{profile.course}</p>
+          </div>
+        )}
+        {profile.educationLevel && (
+          <div>
+            <span className="text-gray-400">Nível</span>
+            <p className="font-medium text-gray-700">{profile.educationLevel}</p>
+          </div>
+        )}
+        {profile.modality && (
+          <div>
+            <span className="text-gray-400">Modalidade</span>
+            <p className="font-medium text-gray-700">{profile.modality}</p>
+          </div>
+        )}
+        {profile.baremScore != null && (
+          <div>
+            <span className="text-gray-400">Pontuação Barema</span>
+            <p className="font-semibold text-blue-700">{profile.baremScore}</p>
+          </div>
+        )}
+        {profile.intakeForms?.length ? (
+          <div className="col-span-2">
+            <span className="text-gray-400">Forma de Ingresso</span>
+            <p className="font-medium text-gray-700">{profile.intakeForms.join(', ')}</p>
+          </div>
+        ) : null}
+      </div>
+
+      {profile.aids?.length ? (
+        <div>
+          <p className="text-xs text-gray-400 mb-1.5">Auxílios Aprovados</p>
+          <div className="flex flex-wrap gap-1.5">
+            {profile.aids.map((aid) => (
+              <span
+                key={aid}
+                className="inline-flex items-center px-2.5 py-1 rounded-lg bg-blue-100 text-blue-700 text-xs font-medium"
+              >
+                {aid.replace(' (VC)', '')}
+              </span>
+            ))}
+          </div>
+          {profile.mealTypes && (
+            <p className="text-xs text-gray-500 mt-1">
+              Refeição: <span className="font-medium text-gray-700">{profile.mealTypes}</span>
+            </p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 interface OrderFilters { userName: string; dateFrom: string; dateTo: string; }
 const defaultOrderFilters: OrderFilters = { userName: '', dateFrom: '', dateTo: '' };
@@ -204,13 +278,17 @@ export const OrdersPage: React.FC = () => {
         title={`Pedido #${viewOrder?.id}`}
         subtitle={`${viewOrder?.user?.name} — ${viewOrder ? formatDateTime(viewOrder.createdAt) : ''}`}
         icon={<ShoppingCart size={18} />}
-        maxWidth="lg"
+        maxWidth="xl"
       >
         {viewOrder && (
           <div className="space-y-4">
             <Badge className={orderStatusColor[viewOrder.status]} dot>
               {orderStatusLabel[viewOrder.status]}
             </Badge>
+
+            {isAdmin && viewOrder.user?.studentProfile && (
+              <StudentInfoPanel profile={viewOrder.user.studentProfile} />
+            )}
 
             <div className="border border-gray-200 rounded-xl overflow-hidden">
               <table className="w-full">

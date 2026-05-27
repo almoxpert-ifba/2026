@@ -47,6 +47,7 @@ export class OrdersService {
 
     const qb = this.ordersRepo.createQueryBuilder('order')
       .leftJoinAndSelect('order.user', 'user')
+      .leftJoinAndSelect('user.studentProfile', 'studentProfile')
       .leftJoinAndSelect('order.approver', 'approver')
       .leftJoinAndSelect('order.items', 'items')
       .leftJoinAndSelect('items.item', 'item')
@@ -89,7 +90,7 @@ export class OrdersService {
   async findOne(id: number, currentUser: JwtPayload) {
     const order = await this.ordersRepo.findOne({
       where: { id },
-      relations: ['user', 'approver', 'items', 'items.item', 'items.variation'],
+      relations: ['user', 'user.studentProfile', 'approver', 'items', 'items.item', 'items.variation'],
     });
 
     if (!order) throw new NotFoundException(`Order #${id} not found`);

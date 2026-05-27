@@ -22,6 +22,29 @@ export class Student {
   @Column({ name: 'social_programs', length: 255, nullable: true })
   socialPrograms: string;
 
+  @Column({ length: 50, nullable: true })
+  campus: string;
+
+  @Column({ name: 'education_level', length: 50, nullable: true })
+  educationLevel: string;
+
+  @Column({ length: 50, nullable: true })
+  modality: string;
+
+  /** Formas de ingresso (array JSON) - ex: ["SISU / AMPLA CONCORRÊNCIA"] */
+  @Column({ name: 'intake_forms', type: 'json', nullable: true })
+  intakeForms: string[];
+
+  /** Auxílios aprovados (array JSON) - ex: ["Auxílio Alimentação (VC)"] */
+  @Column({ type: 'json', nullable: true })
+  aids: string[];
+
+  @Column({ name: 'meal_types', length: 100, nullable: true })
+  mealTypes: string;
+
+  @Column({ name: 'barem_score', type: 'decimal', precision: 5, scale: 1, nullable: true })
+  baremScore: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

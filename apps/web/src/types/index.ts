@@ -8,6 +8,40 @@ export interface AuthResponse {
   accessToken: string;
 }
 
+// ─── Student enums ───────────────────────────────────────────────────────────
+export type StudentAid =
+  | 'Auxílio Alimentação (VC)'
+  | 'Auxílio Transporte Municipal (VC)'
+  | 'Auxílio Cópia e Impressão (VC)'
+  | 'Bolsa de Estudo (VC)'
+  | 'Auxílio Moradia (VC)'
+  | 'Auxílio Transporte Intermunicipal (VC)';
+
+export type IntakeForm =
+  | 'SISU / AMPLA CONCORRÊNCIA'
+  | 'SISU / ESCOLAS PÚBLICAS'
+  | 'SISU / ESCOLAS PÚBLICAS / BAIXA RENDA'
+  | 'SISU / ESCOLAS PÚBLICAS / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'SISU / ESCOLAS PÚBLICAS / BAIXA RENDA / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'SISU / ESCOLAS PÚBLICAS / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS / PESSOAS COM DEFICIÊNCIA'
+  | 'SISU / ESCOLAS PÚBLICAS / BAIXA RENDA / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS / PESSOAS COM DEFICIÊNCIA'
+  | 'PROCESSO SELETIVO / AMPLA CONCORRÊNCIA'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / BAIXA RENDA'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / BAIXA RENDA / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'PROCESSO SELETIVO / QUILOMBOLAS'
+  | 'PROCESSO SELETIVO / PESSOA COM DEFICIÊNCIA'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / PESSOAS COM DEFICIÊNCIA'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / PESSOAS COM DEFICIÊNCIA / BAIXA RENDA'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / PESSOAS COM DEFICIÊNCIA / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'PROCESSO SELETIVO / ESCOLAS PÚBLICAS / PESSOAS COM DEFICIÊNCIA / BAIXA RENDA / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'PROCESSO SELETIVO PARA VAGAS REMANESCENTES / ESCOLAS PÚBLICAS / AUTODECLARAÇÃO - PRETOS, PARDOS E INDÍGENAS'
+  | 'PROGRAMA PEC-G';
+
+export type EducationLevel = 'Graduação' | 'Médio';
+export type StudentModality = 'Bacharelado' | 'Licenciatura' | 'Técnico Integrado' | 'Técnico Subsequente';
+
 // ─── User ────────────────────────────────────────────────────────────────────
 export type UserType = 'admin' | 'student';
 
@@ -28,6 +62,13 @@ export interface StudentProfile {
   registrationNumber: string | null;
   course: string | null;
   socialPrograms: string | null;
+  campus: string | null;
+  educationLevel: EducationLevel | null;
+  modality: StudentModality | null;
+  intakeForms: IntakeForm[] | null;
+  aids: StudentAid[] | null;
+  mealTypes: string | null;
+  baremScore: number | null;
 }
 
 export interface AdminProfile {
@@ -43,6 +84,13 @@ export interface CreateUserDto {
   registrationNumber?: string;
   course?: string;
   socialPrograms?: string;
+  campus?: string;
+  educationLevel?: EducationLevel;
+  modality?: StudentModality;
+  intakeForms?: IntakeForm[];
+  aids?: StudentAid[];
+  mealTypes?: string;
+  baremScore?: number;
   position?: string;
 }
 
@@ -54,8 +102,36 @@ export interface UpdateUserDto {
   registrationNumber?: string;
   course?: string;
   socialPrograms?: string;
+  campus?: string;
+  educationLevel?: EducationLevel;
+  modality?: StudentModality;
+  intakeForms?: IntakeForm[];
+  aids?: StudentAid[];
+  mealTypes?: string;
+  baremScore?: number;
   position?: string;
   isActive?: boolean;
+}
+
+// ─── Import ───────────────────────────────────────────────────────────────────
+export interface ImportRowError {
+  row: number;
+  field: string;
+  message: string;
+}
+
+export interface ImportValidationResult {
+  valid: boolean;
+  totalRows: number;
+  validRows: number;
+  errorRows: number;
+  errors: ImportRowError[];
+}
+
+export interface ImportResult {
+  created: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
 }
 
 // ─── Item ────────────────────────────────────────────────────────────────────

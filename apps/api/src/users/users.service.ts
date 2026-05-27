@@ -150,6 +150,13 @@ export class UsersService {
           registrationNumber: dto.registrationNumber,
           course:             dto.course,
           socialPrograms:     dto.socialPrograms,
+          campus:             dto.campus,
+          educationLevel:     dto.educationLevel,
+          modality:           dto.modality,
+          intakeForms:        dto.intakeForms,
+          aids:               dto.aids,
+          mealTypes:          dto.mealTypes,
+          baremScore:         dto.baremScore,
         }),
       );
     } else {
@@ -176,7 +183,26 @@ export class UsersService {
     if (dto.password)               updates.passwordHash = await bcrypt.hash(dto.password, 10);
 
     Object.assign(user, updates);
-    return this.usersRepo.save(user);
+    await this.usersRepo.save(user);
+
+    if (user.userType === UserType.STUDENT && user.studentProfile) {
+      const studentUpdates: Partial<import('./entities/student.entity').Student> = {};
+      if (dto.registrationNumber !== undefined) studentUpdates.registrationNumber = dto.registrationNumber;
+      if (dto.course             !== undefined) studentUpdates.course             = dto.course;
+      if (dto.socialPrograms     !== undefined) studentUpdates.socialPrograms     = dto.socialPrograms;
+      if (dto.campus             !== undefined) studentUpdates.campus             = dto.campus;
+      if (dto.educationLevel     !== undefined) studentUpdates.educationLevel     = dto.educationLevel as any;
+      if (dto.modality           !== undefined) studentUpdates.modality           = dto.modality as any;
+      if (dto.intakeForms        !== undefined) studentUpdates.intakeForms        = dto.intakeForms as any;
+      if (dto.aids               !== undefined) studentUpdates.aids               = dto.aids as any;
+      if (dto.mealTypes          !== undefined) studentUpdates.mealTypes          = dto.mealTypes;
+      if (dto.baremScore         !== undefined) studentUpdates.baremScore         = dto.baremScore;
+      if (Object.keys(studentUpdates).length) {
+        await this.studentsRepo.update({ userId: id }, studentUpdates);
+      }
+    }
+
+    return this.findOne(id);
   }
 
   async deactivate(id: number) {

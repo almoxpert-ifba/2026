@@ -1,11 +1,15 @@
 import {
   Controller, Get, Post, Patch, Param, Body,
   UseGuards, ParseIntPipe, Query, DefaultValuePipe,
+  UseInterceptors, UploadedFile, Res, HttpCode, HttpStatus,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import {
-  ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery,
+  ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiConsumes, ApiBody,
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { UsersImportService } from './import/users-import.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -18,7 +22,10 @@ import { UserType } from 'shared';
 @Controller('users')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(
+    private usersService: UsersService,
+    private usersImportService: UsersImportService,
+  ) {}
 
   @Get()
   @Roles(UserType.ADMIN)
@@ -59,6 +66,45 @@ export class UsersController {
       createdFrom,
       createdTo,
     });
+  }
+
+  @Get('import/template')
+  @Roles(UserType.ADMIN)
+  @ApiOperation({ summary: 'Download planilha modelo', description: 'Retorna um arquivo .xlsx com o modelo de importação de alunos e instruções de preenchimento.' })
+  @ApiResponse({ status: 200, description: 'Arquivo .xlsx gerado.' })
+  downloadTemplate(@Res() res: Response) {
+    const buffer = this.usersImportService.generateTemplate();
+    res.set({
+      'Content-Type':        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="modelo-alunos.xlsx"',
+      'Content-Length':      buffer.length,
+    });
+    res.end(buffer);
+  }
+
+  @Post('import/validate')
+  @Roles(UserType.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiOperation({ summary: 'Validar planilha de alunos', description: 'Valida o arquivo Excel antes da importação, retornando os erros por linha e campo.' })
+  @ApiResponse({ status: 200, description: 'Resultado da validação.' })
+  validateImport(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new Error('Arquivo não enviado');
+    return this.usersImportService.validate(file.buffer);
+  }
+
+  @Post('import')
+  @Roles(UserType.ADMIN)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiOperation({ summary: 'Importar alunos em massa', description: 'Importa alunos a partir de uma planilha Excel. Registros duplicados (mesma matrícula) são ignorados.' })
+  @ApiResponse({ status: 201, description: 'Resultado da importação.' })
+  bulkImport(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new Error('Arquivo não enviado');
+    return this.usersImportService.import(file.buffer);
   }
 
   @Get(':id')
