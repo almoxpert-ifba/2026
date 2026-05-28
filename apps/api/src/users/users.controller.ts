@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Param, Body,
+  Controller, Get, Post, Patch, Delete, Param, Body,
   UseGuards, ParseIntPipe, Query, DefaultValuePipe,
   UseInterceptors, UploadedFile, Res, HttpCode, HttpStatus,
 } from '@nestjs/common';
@@ -136,6 +136,17 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
   ) {
     return this.usersService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @Roles(UserType.ADMIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remover usuário', description: 'Remove permanentemente um usuário e todos os seus dados. Acesso: admin.' })
+  @ApiParam({ name: 'id', type: Number, example: 1 })
+  @ApiResponse({ status: 204, description: 'Usuário removido.' })
+  @ApiResponse({ status: 404, description: 'Usuário não encontrado.' })
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.remove(id);
   }
 
   @Patch(':id/deactivate')

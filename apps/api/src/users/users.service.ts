@@ -12,6 +12,7 @@ import { Student } from './entities/student.entity';
 import { Administrator } from './entities/administrator.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { EmailService } from '../email/email.service';
 
 interface UsersListQuery {
   pageIndex?: number;
@@ -38,6 +39,7 @@ export class UsersService {
     private studentsRepo: Repository<Student>,
     @InjectRepository(Administrator)
     private adminsRepo: Repository<Administrator>,
+    private emailService: EmailService,
   ) {}
 
   async findAll(query: UsersListQuery = {}) {
@@ -170,6 +172,10 @@ export class UsersService {
       );
     }
 
+    this.emailService
+      .sendWelcome(saved.email, saved.name, dto.password)
+      .catch(() => {/* fire and forget */});
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...result } = saved;
     return result;
@@ -212,6 +218,12 @@ export class UsersService {
     return this.usersRepo.save(user);
   }
 
+  async remove(id: number): Promise<void> {
+    const user = await this.usersRepo.findOne({ where: { id } });
+    if (!user) throw new NotFoundException(`User #${id} not found`);
+    await this.usersRepo.remove(user);
+  }
+
   getDefaultPassword(user: User): string {
     if (user.userType === UserType.STUDENT) {
       const reg = (user as any).studentProfile?.registrationNumber ?? 'aluno';
@@ -230,6 +242,13 @@ export class UsersService {
     user.passwordHash        = await bcrypt.hash(defaultPassword, 10);
     user.mustChangePassword  = true;
     await this.usersRepo.save(user);
+
+    if (user.receiveEmails) {
+      this.emailService
+        .sendPasswordResetByAdmin(user.email, user.name, defaultPassword)
+        .catch(() => {/* fire and forget */});
+    }
+
     return { defaultPassword };
   }
 
