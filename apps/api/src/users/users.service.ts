@@ -157,10 +157,8 @@ export class UsersService {
           campus:             dto.campus,
           educationLevel:     dto.educationLevel,
           modality:           dto.modality,
-          intakeForms:        dto.intakeForms,
           aids:               dto.aids,
           mealTypes:          dto.mealTypes,
-          baremScore:         dto.baremScore,
         }),
       );
     } else {
