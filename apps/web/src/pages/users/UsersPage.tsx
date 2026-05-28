@@ -1,71 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Users, Plus, Trash2, ShieldCheck, GraduationCap, Pencil,
-  Download, Upload, CheckCircle2, XCircle, AlertTriangle, KeyRound, Mail, MailX,
+  Download, Upload, KeyRound, Mail, MailX,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Header } from '../../components/layout/Header';
 import { Button } from '../../components/ui/Button';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
-import { Modal } from '../../components/ui/Modal';
 import { ConfirmModal } from '../../components/ui/Modal';
-import { Input, Select } from '../../components/ui/FormFields';
-import { ComboBox } from '../../components/ui/ComboBox';
 import { usersService } from '../../services/index';
 import { useToast } from '../../components/ui/Toast';
 import { getInitials, formatDate } from '../../utils';
 import { UserFilters, defaultFilters } from './UserFilters';
 import type { UserFiltersState } from './UserFilters';
-import type { User, UpdateUserDto, ImportValidationResult, ImportResult, StudentAid } from '../../types';
+import type { User, UpdateUserDto, CreateUserDto } from '../../types';
+import { UserFormModal } from './modals/UserFormModal';
+import { UserImportModal } from './modals/UserImportModal';
 
 type OutletCtx = { onMenuClick: () => void };
-
-const AIDS_OPTIONS: { value: StudentAid; label: string }[] = [
-  { value: 'Auxílio Alimentação (VC)',             label: 'Auxílio Alimentação' },
-  { value: 'Auxílio Transporte Municipal (VC)',    label: 'Transporte Municipal' },
-  { value: 'Auxílio Transporte Intermunicipal (VC)', label: 'Transporte Intermunicipal' },
-  { value: 'Auxílio Moradia (VC)',                 label: 'Moradia' },
-  { value: 'Auxílio Cópia e Impressão (VC)',       label: 'Cópia e Impressão' },
-  { value: 'Bolsa de Estudo (VC)',                 label: 'Bolsa de Estudo' },
-];
-
-const createSchema = z.object({
-  name:               z.string().min(2, 'Nome obrigatório'),
-  email:              z.string().email('E-mail inválido'),
-  password:           z.string().min(6, 'Mínimo 6 caracteres').optional(),
-  userType:           z.enum(['admin', 'student']),
-  // student fields
-  registrationNumber: z.string().optional(),
-  course:             z.string().optional(),
-  campus:             z.string().optional(),
-  educationLevel:     z.string().optional(),
-  modality:           z.string().optional(),
-  aids:               z.array(z.string()).optional(),
-  mealTypes:          z.string().optional(),
-  // admin fields
-  position:           z.string().optional(),
-});
-type CreateForm = z.infer<typeof createSchema>;
-
-const editSchema = z.object({
-  name:               z.string().min(2, 'Nome obrigatório'),
-  email:              z.string().email('E-mail inválido'),
-  password:           z.string().min(6, 'Mínimo 6 caracteres').or(z.literal('')).optional(),
-  registrationNumber: z.string().optional(),
-  course:             z.string().optional(),
-  position:           z.string().optional(),
-  isActive:           z.enum(['true', 'false']),
-});
-type EditForm = z.infer<typeof editSchema>;
-
-// ── Import modal states ──
-type ImportStep = 'idle' | 'validating' | 'validated' | 'importing' | 'done';
 
 export const UsersPage: React.FC = () => {
   const { onMenuClick } = useOutletContext<OutletCtx>();
@@ -75,28 +30,16 @@ export const UsersPage: React.FC = () => {
   const [page, setPage]             = useState(1);
   const [typeFilter, setTypeFilter] = useState<'all' | 'admin' | 'student'>('all');
   const [filters, setFilters]       = useState<UserFiltersState>(defaultFilters);
-  const [createModal, setCreateModal]         = useState(false);
-  const [deleteUser, setDeleteUser]           = useState<User | null>(null);
-  const [editUserId, setEditUserId]           = useState<number | null>(null);
+  const [createModal, setCreateModal]             = useState(false);
+  const [editUserId, setEditUserId]               = useState<number | null>(null);
+  const [deleteUser, setDeleteUser]               = useState<User | null>(null);
   const [resetPasswordUser, setResetPasswordUser] = useState<User | null>(null);
+  const [importOpen, setImportOpen]               = useState(false);
 
-  // ── Import state ──
-  const [importOpen, setImportOpen]         = useState(false);
-  const [importStep, setImportStep]         = useState<ImportStep>('idle');
-  const [importFile, setImportFile]         = useState<File | null>(null);
-  const [validationResult, setValidation]   = useState<ImportValidationResult | null>(null);
-  const [importResult, setImportResult]     = useState<ImportResult | null>(null);
-  const fileInputRef                        = useRef<HTMLInputElement>(null);
-
-  const importStepNum = importStep === 'idle' || importStep === 'validating' ? 1
-    : importStep === 'validated' ? 2 : 3;
-
-  const handleFiltersChange = (f: UserFiltersState) => {
-    setFilters(f);
-    setPage(1);
-  };
+  const handleFiltersChange = (f: UserFiltersState) => { setFilters(f); setPage(1); };
 
   // ── Queries ──────────────────────────────────────────────────────────────────
+
   const { data, isLoading } = useQuery({
     queryKey: ['users', page, typeFilter, filters],
     queryFn: () => usersService.list({
@@ -119,77 +62,20 @@ export const UsersPage: React.FC = () => {
     enabled:  !!editUserId,
   });
 
-  // ── Forms ────────────────────────────────────────────────────────────────────
-  const {
-    register, handleSubmit, watch, reset, setValue,
-    formState: { errors },
-  } = useForm<CreateForm>({
-    resolver: zodResolver(createSchema),
-    defaultValues: { userType: 'student', aids: [] },
-  });
-  const watchType = watch('userType');
-  const watchAids = watch('aids') ?? [];
-
-  const {
-    register: editReg, handleSubmit: editHandleSubmit,
-    reset: editReset, watch: editWatch, setValue: editSetValue,
-    formState: { errors: editErrors },
-  } = useForm<EditForm>({
-    resolver: zodResolver(editSchema),
-  });
-  const editUserType = editUserData?.userType;
-
-  useEffect(() => {
-    if (editUserData) {
-      editReset({
-        name:               editUserData.name,
-        email:              editUserData.email,
-        password:           '',
-        registrationNumber: editUserData.studentProfile?.registrationNumber ?? '',
-        course:             editUserData.studentProfile?.course ?? '',
-        position:           editUserData.adminProfile?.position ?? '',
-        isActive:           editUserData.isActive ? 'true' : 'false',
-      });
-    }
-  }, [editUserData, editReset]);
-
   // ── Mutations ────────────────────────────────────────────────────────────────
+
   const createMutation = useMutation({
-    mutationFn: usersService.create,
+    mutationFn: (dto: CreateUserDto) => usersService.create(dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       toast.success('Usuário criado!');
       setCreateModal(false);
-      reset();
     },
     onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Erro ao criar usuário.'),
   });
 
-  function buildCreatePayload(d: CreateForm) {
-    const base = {
-      name:     d.name,
-      email:    d.email,
-      password: d.userType === 'student' ? `ifba.${d.registrationNumber ?? ''}` : (d.password ?? ''),
-      userType: d.userType,
-    };
-    if (d.userType === 'student') {
-      return {
-        ...base,
-        registrationNumber: d.registrationNumber || undefined,
-        course:             d.course             || undefined,
-        campus:             d.campus             || undefined,
-        educationLevel:     (d.educationLevel    || undefined) as any,
-        modality:           (d.modality          || undefined) as any,
-        aids:               d.aids?.length ? d.aids as any : undefined,
-        mealTypes:          d.mealTypes          || undefined,
-      };
-    }
-    return { ...base, position: d.position || undefined };
-  }
-
   const editMutation = useMutation({
-    mutationFn: ({ id, dto }: { id: number; dto: UpdateUserDto }) =>
-      usersService.update(id, dto),
+    mutationFn: ({ id, dto }: { id: number; dto: UpdateUserDto }) => usersService.update(id, dto),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['user', editUserId] });
@@ -218,66 +104,8 @@ export const UsersPage: React.FC = () => {
     onError: () => toast.error('Erro ao resetar senha.'),
   });
 
-  const onEditSubmit = (d: EditForm) => {
-    const dto: UpdateUserDto = {
-      name:     d.name,
-      email:    d.email,
-      isActive: d.isActive === 'true',
-      ...(d.password ? { password: d.password } : {}),
-      ...(editUserType === 'student'
-        ? { registrationNumber: d.registrationNumber, course: d.course }
-        : { position: d.position }),
-    };
-    editMutation.mutate({ id: editUserId!, dto });
-  };
-
-  // ── Import handlers ───────────────────────────────────────────────────────────
-  function openImport() {
-    setImportOpen(true);
-    setImportStep('idle');
-    setImportFile(null);
-    setValidation(null);
-    setImportResult(null);
-  }
-
-  function closeImport() {
-    setImportOpen(false);
-  }
-
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportFile(file);
-    setImportStep('validating');
-    setValidation(null);
-    try {
-      const result = await usersService.validateImport(file);
-      setValidation(result);
-      setImportStep('validated');
-    } catch {
-      toast.error('Erro ao validar planilha.');
-      setImportStep('idle');
-    } finally {
-      // reset input so same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  }
-
-  async function handleConfirmImport() {
-    if (!importFile) return;
-    setImportStep('importing');
-    try {
-      const result = await usersService.bulkImport(importFile);
-      setImportResult(result);
-      setImportStep('done');
-      qc.invalidateQueries({ queryKey: ['users'] });
-    } catch {
-      toast.error('Erro ao importar planilha.');
-      setImportStep('validated');
-    }
-  }
-
   // ── Columns ──────────────────────────────────────────────────────────────────
+
   const columns = [
     {
       key: 'name', header: 'Usuário',
@@ -302,9 +130,8 @@ export const UsersPage: React.FC = () => {
     {
       key: 'detail', header: 'Detalhes',
       render: (u: User) => u.userType === 'admin'
-        ? (
-          <span className="text-xs text-gray-500">{u.adminProfile?.position ?? '—'}</span>
-        ) : (
+        ? <span className="text-xs text-gray-500">{u.adminProfile?.position ?? '—'}</span>
+        : (
           <div>
             <p className="text-xs font-mono text-gray-500">{u.studentProfile?.registrationNumber ?? '—'}</p>
             <p className="text-xs text-gray-400">{u.studentProfile?.course ?? '—'}</p>
@@ -331,25 +158,16 @@ export const UsersPage: React.FC = () => {
       key: 'actions', header: '',
       render: (u: User) => (
         <div className="flex items-center gap-1 justify-end">
-          <button
-            onClick={() => setEditUserId(Number(u.id))}
-            title="Editar"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
-          >
+          <button onClick={() => setEditUserId(Number(u.id))} title="Editar"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors">
             <Pencil size={14} />
           </button>
-          <button
-            onClick={() => setResetPasswordUser(u)}
-            title="Resetar senha"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition-colors"
-          >
+          <button onClick={() => setResetPasswordUser(u)} title="Resetar senha"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-amber-500 hover:bg-amber-50 transition-colors">
             <KeyRound size={14} />
           </button>
-          <button
-            onClick={() => setDeleteUser(u)}
-            title="Remover"
-            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500Bg transition-colors"
-          >
+          <button onClick={() => setDeleteUser(u)} title="Remover"
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
             <Trash2 size={14} />
           </button>
         </div>
@@ -365,15 +183,12 @@ export const UsersPage: React.FC = () => {
         onMenuClick={onMenuClick}
         actions={
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => usersService.downloadTemplate()}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-            >
+            <button type="button" onClick={() => usersService.downloadTemplate()}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
               <Download size={14} />
               Planilha Modelo
             </button>
-            <Button variant="secondary" icon={<Upload size={15} />} onClick={openImport}>
+            <Button variant="secondary" icon={<Upload size={15} />} onClick={() => setImportOpen(true)}>
               Importar
             </Button>
             <Button icon={<Plus size={15} />} onClick={() => setCreateModal(true)}>
@@ -385,26 +200,16 @@ export const UsersPage: React.FC = () => {
 
       <div className="p-4 sm:p-6 animate-fade-in">
         <div className="card">
-          {/* Type tabs */}
           <div className="px-5 py-3 border-b border-gray-100 flex gap-1">
             {(['all', 'admin', 'student'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => {
-                  setTypeFilter(t);
-                  setPage(1);
-                  setFilters((prev) => ({ ...prev, registrationNumber: '', course: '', position: '' }));
-                }}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
-                  typeFilter === t ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
+              <button key={t}
+                onClick={() => { setTypeFilter(t); setPage(1); setFilters((prev) => ({ ...prev, registrationNumber: '', course: '', position: '' })); }}
+                className={`text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${typeFilter === t ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>
                 {t === 'all' ? 'Todos' : t === 'admin' ? 'Admins' : 'Estudantes'}
               </button>
             ))}
           </div>
 
-          {/* Filters */}
           <UserFilters filters={filters} onChange={handleFiltersChange} typeFilter={typeFilter} />
 
           <Table
@@ -420,378 +225,30 @@ export const UsersPage: React.FC = () => {
       </div>
 
       {/* ── Create Modal ──────────────────────────────────────────────────── */}
-      <Modal
+      <UserFormModal
+        mode="create"
         open={createModal}
-        onClose={() => { setCreateModal(false); reset(); }}
-        title="Novo Usuário"
-        subtitle="Preencha os dados do novo usuário"
-        icon={<Users size={18} />}
-        maxWidth="xl"
-      >
-        <form onSubmit={handleSubmit((d) => createMutation.mutate(buildCreatePayload(d)))} className="space-y-4">
-          {/* Dados base */}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Input label="Nome Completo" placeholder="João da Silva" error={errors.name?.message} {...register('name')} />
-            <Input label="E-mail" type="email" placeholder="joao@ifba.edu.br" error={errors.email?.message} {...register('email')} />
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Select
-              label="Tipo de Usuário"
-              options={[{ value: 'student', label: 'Estudante' }, { value: 'admin', label: 'Administrador' }]}
-              error={errors.userType?.message}
-              {...register('userType')}
-            />
-            {watchType === 'admin' ? (
-              <Input label="Senha" type="password" placeholder="••••••••" error={errors.password?.message} {...register('password')} />
-            ) : (
-              <div className="w-full">
-                <p className="label">Senha</p>
-                <div className="input bg-gray-50 text-gray-400 text-xs flex items-center select-none cursor-default">
-                  ifba.<span className="text-gray-500 font-mono">{watch('registrationNumber') || 'matrícula'}</span>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">Gerada automaticamente</p>
-              </div>
-            )}
-          </div>
-
-          {/* Campos de admin */}
-          {watchType === 'admin' && (
-            <Input label="Cargo" placeholder="Assistente Social" {...register('position')} />
-          )}
-
-          {/* Campos de estudante */}
-          {watchType === 'student' && (
-            <div className="space-y-4 border-t border-gray-100 pt-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Dados acadêmicos</p>
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <Input label="Matrícula" placeholder="20221234" {...register('registrationNumber')} />
-                <Input label="Campus" placeholder="VC" {...register('campus')} />
-              </div>
-
-              <Input label="Curso" placeholder="113 - Bacharelado em Engenharia Elétrica" {...register('course')} />
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <ComboBox
-                  label="Nível de Ensino"
-                  placeholder="Selecione..."
-                  options={[
-                    { value: 'Graduação', label: 'Graduação' },
-                    { value: 'Médio',     label: 'Médio' },
-                  ]}
-                  value={watch('educationLevel') ?? ''}
-                  onChange={(v) => setValue('educationLevel', v as string)}
-                />
-                <ComboBox
-                  label="Modalidade"
-                  placeholder="Selecione..."
-                  options={[
-                    { value: 'Bacharelado',        label: 'Bacharelado' },
-                    { value: 'Licenciatura',        label: 'Licenciatura' },
-                    { value: 'Técnico Integrado',   label: 'Técnico Integrado' },
-                    { value: 'Técnico Subsequente', label: 'Técnico Subsequente' },
-                  ]}
-                  value={watch('modality') ?? ''}
-                  onChange={(v) => setValue('modality', v as string)}
-                />
-              </div>
-
-              <ComboBox
-                multiple
-                label="Auxílios Aprovados"
-                placeholder="Selecione os auxílios..."
-                options={AIDS_OPTIONS}
-                value={watchAids as string[]}
-                onChange={(vals) => setValue('aids', vals as string[])}
-              />
-
-              <ComboBox
-                label="Tipo de Refeição (auxílio alimentação)"
-                placeholder="Não se aplica"
-                options={[
-                  { value: 'Almoço',               label: 'Almoço' },
-                  { value: 'Jantar',                label: 'Jantar' },
-                  { value: 'Café da manhã',         label: 'Café da manhã' },
-                  { value: 'Almoço, Café da manhã', label: 'Almoço e Café da manhã' },
-                ]}
-                value={watch('mealTypes') ?? ''}
-                onChange={(v) => setValue('mealTypes', v as string)}
-              />
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-            <Button type="button" variant="secondary" onClick={() => { setCreateModal(false); reset(); }}>Cancelar</Button>
-            <Button type="submit" loading={createMutation.isPending}>Criar Usuário</Button>
-          </div>
-        </form>
-      </Modal>
+        onClose={() => setCreateModal(false)}
+        onSave={(dto) => createMutation.mutate(dto)}
+        loading={createMutation.isPending}
+      />
 
       {/* ── Edit Modal ────────────────────────────────────────────────────── */}
-      <Modal
-        open={!!editUserId}
-        onClose={() => setEditUserId(null)}
-        title="Editar Usuário"
-        subtitle="Atualize os dados do usuário"
-        icon={<Pencil size={18} />}
-        maxWidth="lg"
-      >
-        <form onSubmit={editHandleSubmit(onEditSubmit)} className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
-            <Input label="Nome Completo" placeholder="João da Silva" error={editErrors.name?.message} {...editReg('name')} />
-            <Input label="E-mail" type="email" placeholder="joao@email.com" error={editErrors.email?.message} {...editReg('email')} />
-          </div>
-          {editUserType === 'admin' ? (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Input
-                label="Nova Senha"
-                type="password"
-                placeholder="Deixe em branco para não alterar"
-                error={editErrors.password?.message}
-                {...editReg('password')}
-              />
-              <ComboBox
-                label="Status"
-                options={[{ value: 'true', label: 'Ativo' }, { value: 'false', label: 'Inativo' }]}
-                error={editErrors.isActive?.message}
-                clearable={false}
-                value={editWatch('isActive') ?? ''}
-                onChange={(v) => editSetValue('isActive', v as 'true' | 'false')}
-              />
-            </div>
-          ) : (
-            <ComboBox
-              label="Status"
-              options={[{ value: 'true', label: 'Ativo' }, { value: 'false', label: 'Inativo' }]}
-              error={editErrors.isActive?.message}
-              clearable={false}
-              value={editWatch('isActive') ?? ''}
-              onChange={(v) => editSetValue('isActive', v as 'true' | 'false')}
-            />
-          )}
-
-          {editUserType === 'student' ? (
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Input label="Matrícula" placeholder="20221234" {...editReg('registrationNumber')} />
-              <Input label="Curso" placeholder="Técnico em Informática" {...editReg('course')} />
-            </div>
-          ) : (
-            <Input label="Cargo" placeholder="Assistente Social" {...editReg('position')} />
-          )}
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-            <Button type="button" variant="secondary" onClick={() => setEditUserId(null)}>Cancelar</Button>
-            <Button type="submit" loading={editMutation.isPending}>Salvar Alterações</Button>
-          </div>
-        </form>
-      </Modal>
+      {editUserData && (
+        <UserFormModal
+          mode="edit"
+          user={editUserData}
+          open={!!editUserId}
+          onClose={() => setEditUserId(null)}
+          onSave={(dto) => editMutation.mutate({ id: editUserId!, dto })}
+          loading={editMutation.isPending}
+        />
+      )}
 
       {/* ── Import Modal ──────────────────────────────────────────────────── */}
-      <Modal
-        open={importOpen}
-        onClose={closeImport}
-        title="Importar Alunos"
-        subtitle="Importe uma planilha para cadastrar alunos em massa"
-        icon={<Upload size={18} />}
-        maxWidth="xl"
-      >
-        <div className="space-y-5">
-          {/* ── Step indicator ── */}
-          <div className="flex items-center justify-center">
-            {[
-              { n: 1, label: 'Arquivo' },
-              { n: 2, label: 'Validação' },
-              { n: 3, label: 'Importação' },
-            ].map(({ n, label }, i) => (
-              <React.Fragment key={n}>
-                <div className="flex flex-col items-center gap-1.5">
-                  <div className={[
-                    'w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all',
-                    n < importStepNum  ? 'bg-blue-600 border-blue-600 text-white' :
-                    n === importStepNum ? 'border-blue-500 text-blue-600 bg-blue-50' :
-                                         'border-gray-200 text-gray-300 bg-white',
-                  ].join(' ')}>
-                    {n < importStepNum ? <CheckCircle2 size={14} /> : n}
-                  </div>
-                  <span className={`text-[10px] font-medium ${n <= importStepNum ? 'text-blue-600' : 'text-gray-300'}`}>
-                    {label}
-                  </span>
-                </div>
-                {i < 2 && (
-                  <div className={`h-0.5 flex-1 mb-5 mx-2 transition-all ${n < importStepNum ? 'bg-blue-600' : 'bg-gray-200'}`} />
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+      <UserImportModal open={importOpen} onClose={() => setImportOpen(false)} />
 
-          {/* ── Etapa 1: seleção do arquivo ── */}
-          {importStepNum === 1 && (
-            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-xl py-12 gap-3">
-              <Upload size={36} className={importStep === 'validating' ? 'text-blue-400 animate-bounce' : 'text-gray-300'} />
-              <p className="text-sm text-gray-500">
-                Selecione o arquivo <span className="font-semibold">.xlsx</span> ou <span className="font-semibold">.xls</span>
-              </p>
-              {importFile && importStep === 'validating' && (
-                <p className="text-xs text-blue-500 font-medium">{importFile.name}</p>
-              )}
-              <Button
-                type="button"
-                variant="secondary"
-                loading={importStep === 'validating'}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                {importStep === 'validating' ? 'Validando...' : 'Selecionar Arquivo'}
-              </Button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-            </div>
-          )}
-
-          {/* ── Etapa 2: resultado da validação ── */}
-          {importStepNum === 2 && validationResult && (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-gray-50 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-bold text-gray-800">{validationResult.totalRows}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Total de linhas</p>
-                </div>
-                <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-bold text-emerald-600">{validationResult.validRows}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Válidas</p>
-                </div>
-                <div className={`${validationResult.errorRows > 0 ? 'bg-red-50' : 'bg-emerald-50'} rounded-xl p-3 text-center`}>
-                  <p className={`text-2xl font-bold ${validationResult.errorRows > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                    {validationResult.errorRows}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">Com erros</p>
-                </div>
-              </div>
-
-              {validationResult.valid ? (
-                <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-3 rounded-xl text-sm font-medium">
-                  <CheckCircle2 size={16} />
-                  Planilha válida! Todas as linhas podem ser importadas.
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-amber-600 bg-amber-50 px-4 py-3 rounded-xl text-sm font-medium">
-                  <AlertTriangle size={16} />
-                  {validationResult.errorRows} linha(s) com erros. As linhas válidas ainda podem ser importadas.
-                </div>
-              )}
-
-              {validationResult.errors.length > 0 && (
-                <div className="border border-red-100 rounded-xl overflow-hidden max-h-52 overflow-y-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-red-50 sticky top-0">
-                      <tr>
-                        <th className="table-header text-left w-14">Linha</th>
-                        <th className="table-header text-left w-40">Campo</th>
-                        <th className="table-header text-left">Erro</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-red-50">
-                      {validationResult.errors.map((err, i) => (
-                        <tr key={i} className="bg-white">
-                          <td className="table-cell font-mono text-gray-400">{err.row}</td>
-                          <td className="table-cell font-medium text-gray-600">{err.field}</td>
-                          <td className="table-cell text-red-500">{err.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              <div className="flex justify-between gap-3 pt-2 border-t border-gray-100">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => { setImportStep('idle'); setImportFile(null); setValidation(null); }}
-                >
-                  Trocar arquivo
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleConfirmImport}
-                  disabled={validationResult.validRows === 0}
-                >
-                  Importar {validationResult.validRows} aluno(s)
-                </Button>
-              </div>
-            </>
-          )}
-
-          {/* ── Etapa 3: processando / concluído ── */}
-          {importStepNum === 3 && (
-            <>
-              {importStep === 'importing' && (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <Upload size={36} className="text-blue-400 animate-bounce" />
-                  <p className="text-sm text-gray-500 font-medium">Importando alunos, aguarde...</p>
-                  <p className="text-xs text-gray-400">Isso pode levar alguns instantes</p>
-                </div>
-              )}
-
-              {importStep === 'done' && importResult && (
-                <>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-emerald-50 rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-emerald-600">{importResult.created}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Criados</p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-3 text-center">
-                      <p className="text-2xl font-bold text-gray-500">{importResult.skipped}</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Já existiam</p>
-                    </div>
-                    <div className={`${importResult.errors.length > 0 ? 'bg-red-50' : 'bg-emerald-50'} rounded-xl p-3 text-center`}>
-                      <p className={`text-2xl font-bold ${importResult.errors.length > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                        {importResult.errors.length}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">Falhas</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-4 py-3 rounded-xl text-sm font-medium">
-                    <CheckCircle2 size={16} />
-                    Importação concluída! {importResult.created} aluno(s) cadastrado(s).
-                  </div>
-
-                  {importResult.errors.length > 0 && (
-                    <div className="border border-red-100 rounded-xl overflow-hidden max-h-48 overflow-y-auto">
-                      <table className="w-full text-xs">
-                        <thead className="bg-red-50 sticky top-0">
-                          <tr>
-                            <th className="table-header text-left w-14">Linha</th>
-                            <th className="table-header text-left">Erro</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-red-50">
-                          {importResult.errors.map((err, i) => (
-                            <tr key={i} className="bg-white">
-                              <td className="table-cell font-mono text-gray-400">{err.row}</td>
-                              <td className="table-cell text-red-500">{err.message}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end pt-2 border-t border-gray-100">
-                    <Button type="button" onClick={closeImport}>Fechar</Button>
-                  </div>
-                </>
-              )}
-            </>
-          )}
-        </div>
-      </Modal>
-
+      {/* ── Confirm Delete ────────────────────────────────────────────────── */}
       <ConfirmModal
         open={!!deleteUser}
         onClose={() => setDeleteUser(null)}
@@ -802,6 +259,7 @@ export const UsersPage: React.FC = () => {
         loading={deleteMutation.isPending}
       />
 
+      {/* ── Confirm Reset Password ────────────────────────────────────────── */}
       <ConfirmModal
         open={!!resetPasswordUser}
         onClose={() => setResetPasswordUser(null)}

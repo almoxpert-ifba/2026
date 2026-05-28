@@ -2,19 +2,16 @@ import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Layers, AlertTriangle, Settings2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
 import { Header } from '../../components/layout/Header';
 import { Table } from '../../components/ui/Table';
 import { Badge } from '../../components/ui/Badge';
 import { Pagination } from '../../components/ui/Pagination';
-import { Modal } from '../../components/ui/Modal';
 import { FilterBar, type FilterFieldDef } from '../../components/ui/FilterBar';
-import { Input } from '../../components/ui/FormFields';
-import { Button } from '../../components/ui/Button';
 import { stockService } from '../../services/stockService';
 import { useToast } from '../../components/ui/Toast';
 import { useAuthStore } from '../../store/authStore';
 import type { StockEntry } from '../../types';
+import { StockMinModal } from './modals/StockMinModal';
 
 interface StockFilters { itemName: string; }
 const defaultStockFilters: StockFilters = { itemName: '' };
@@ -48,8 +45,6 @@ export const StockPage: React.FC = () => {
     },
   });
 
-  const { register, handleSubmit, reset } = useForm<{ minimum: number }>();
-
   const updateMutation = useMutation({
     mutationFn: ({ entry, minimum }: { entry: StockEntry; minimum: number }) =>
       stockService.updateMinimum(entry.itemId, entry.variationId, entry.size, minimum),
@@ -61,11 +56,6 @@ export const StockPage: React.FC = () => {
     onError: () => toast.error('Erro ao atualizar estoque.'),
   });
 
-  const openEdit = (entry: StockEntry) => {
-    setEditEntry(entry);
-    reset({ minimum: entry.minimumQuantity });
-  };
-
   const isLow = (e: StockEntry) => e.availableQuantity <= e.minimumQuantity;
 
   const columns = [
@@ -74,7 +64,9 @@ export const StockPage: React.FC = () => {
       render: (e: StockEntry) => (
         <div>
           <p className="font-medium text-gray-800">{e.item?.name}</p>
-          <p className="text-xs text-gray-400">{e.variation?.description ?? 'Sem variação'}</p>
+          <p className="text-xs text-gray-400">
+            {e.item?.hasVariations && e.variation?.description ? e.variation.description : 'Sem variação'}
+          </p>
         </div>
       ),
     },
@@ -113,7 +105,7 @@ export const StockPage: React.FC = () => {
       key: 'actions', header: '',
       render: (e: StockEntry) => (
         <button
-          onClick={() => openEdit(e)}
+          onClick={() => setEditEntry(e)}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors ml-auto"
         >
           <Settings2 size={14} />
@@ -172,46 +164,12 @@ export const StockPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Edit minimum modal */}
-      <Modal
-        open={!!editEntry}
+      <StockMinModal
+        entry={editEntry}
         onClose={() => setEditEntry(null)}
-        title="Editar Estoque Mínimo"
-        subtitle={`${editEntry?.item?.name}${editEntry?.variation?.description ? ` — ${editEntry.variation.description}` : ''}${editEntry?.size && editEntry.size !== 'none' ? ` (${editEntry.size})` : ''}`}
-        icon={<Settings2 size={18} />}
-        maxWidth="sm"
-      >
-        <form
-          onSubmit={handleSubmit((d) =>
-            updateMutation.mutate({ entry: editEntry!, minimum: d.minimum })
-          )}
-          className="space-y-4"
-        >
-          <div className="flex gap-4 p-3 bg-gray-50 rounded-xl text-sm">
-            <div>
-              <p className="text-xs text-gray-400">Atual</p>
-              <p className="font-bold text-gray-800">{editEntry?.availableQuantity} un.</p>
-            </div>
-            <div className="w-px bg-gray-200" />
-            <div>
-              <p className="text-xs text-gray-400">Mínimo atual</p>
-              <p className="font-bold text-gray-800">{editEntry?.minimumQuantity} un.</p>
-            </div>
-          </div>
-
-          <Input
-            label="Novo Mínimo"
-            type="number"
-            min={0}
-            {...register('minimum', { valueAsNumber: true })}
-          />
-
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="secondary" onClick={() => setEditEntry(null)}>Cancelar</Button>
-            <Button type="submit" loading={updateMutation.isPending}>Salvar</Button>
-          </div>
-        </form>
-      </Modal>
+        onSave={(entry, minimum) => updateMutation.mutate({ entry, minimum })}
+        loading={updateMutation.isPending}
+      />
     </div>
   );
 };

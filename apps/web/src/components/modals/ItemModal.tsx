@@ -118,8 +118,12 @@ export const ItemModal: React.FC<ItemModalProps> = ({
       subtitle={isEditing ? `Editando: ${item?.name}` : 'Preencha os dados do novo item'}
       icon={<Package size={18} />}
       maxWidth="lg"
+      footer={<>
+        <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+        <Button type="submit" form="item-modal-form" loading={loading}>{isEditing ? 'Salvar Alterações' : 'Criar Item'}</Button>
+      </>}
     >
-      <form onSubmit={handleSubmit(handleSave)} className="space-y-4">
+      <form id="item-modal-form" onSubmit={handleSubmit(handleSave)} className="space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
           <Input
             label="Nome do Item"
@@ -303,10 +307,6 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           </div>
         )}
 
-        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-          <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" loading={loading}>{isEditing ? 'Salvar Alterações' : 'Criar Item'}</Button>
-        </div>
       </form>
     </Modal>
   );
