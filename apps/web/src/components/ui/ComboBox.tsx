@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { X, Check, Loader2, ChevronsUpDown } from 'lucide-react';
 
@@ -84,8 +85,10 @@ export const ComboBox: React.FC<ComboBoxProps> = (props) => {
   const [search, setSearch]     = useState('');
   const debounced               = useDebounce(search);
   const containerRef            = useRef<HTMLDivElement>(null);
+  const dropdownRef             = useRef<HTMLDivElement>(null);
   const inputRef                = useRef<HTMLInputElement>(null);
   const sentinelRef             = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   // searchable auto: true when async or static list has more than 5 options
   const searchable = props.searchable ??
@@ -149,10 +152,35 @@ export const ComboBox: React.FC<ComboBoxProps> = (props) => {
   }, [isOpen, asyncQuery.hasNextPage, asyncQuery.isFetchingNextPage,
       asyncQuery.fetchNextPage, asyncItems.length, fetchFn]);
 
+  // ── Portal dropdown position ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+    const update = () => {
+      const rect = containerRef.current!.getBoundingClientRect();
+      setDropdownStyle({
+        position: 'fixed',
+        top:   rect.bottom + 4,
+        left:  rect.left,
+        width: rect.width,
+        zIndex: 9999,
+      });
+    };
+    update();
+    window.addEventListener('scroll', update, true);
+    window.addEventListener('resize', update);
+    return () => {
+      window.removeEventListener('scroll', update, true);
+      window.removeEventListener('resize', update);
+    };
+  }, [isOpen]);
+
   // ── Close on outside click ──────────────────────────────────────────────────
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideContainer = containerRef.current?.contains(target);
+      const insideDropdown  = dropdownRef.current?.contains(target);
+      if (!insideContainer && !insideDropdown) {
         setIsOpen(false);
         setSearch('');
       }
@@ -319,13 +347,14 @@ export const ComboBox: React.FC<ComboBoxProps> = (props) => {
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
       {hint  && !error && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
 
-      {/* ── Dropdown ────────────────────────────────────────────────────── */}
-      {isOpen && (
+      {/* ── Dropdown (portal — evita clipping por overflow do pai) ─────── */}
+      {isOpen && createPortal(
         <div
+          ref={dropdownRef}
           role="listbox"
-          // Prevent any click inside the dropdown from blurring the input
           onMouseDown={(e) => e.preventDefault()}
-          className="absolute z-50 top-full mt-1 w-full min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
+          style={dropdownStyle}
+          className="min-w-[180px] bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden"
         >
           {/* Multiselect actions */}
           {multiple && visibleOptions.length > 0 && (
@@ -424,7 +453,8 @@ export const ComboBox: React.FC<ComboBoxProps> = (props) => {
               )}
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

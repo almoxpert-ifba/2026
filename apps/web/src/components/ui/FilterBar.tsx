@@ -12,7 +12,7 @@ export interface FilterFieldDef {
   options?: { value: string; label: string }[];        // somente para type === 'select'
 }
 
-interface FilterBarProps<T extends Record<string, string>> {
+interface FilterBarProps<T extends object> {
   filters: T;
   defaults: T;                                          // estado "vazio" — usado para reset
   fields: FilterFieldDef[];
@@ -35,7 +35,7 @@ function displayValue(field: FilterFieldDef, value: string): string {
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
-export function FilterBar<T extends Record<string, string>>({
+export function FilterBar<T extends object>({
   filters,
   defaults,
   fields,
@@ -45,50 +45,57 @@ export function FilterBar<T extends Record<string, string>>({
 }: FilterBarProps<T>) {
   const [open, setOpen] = useState(defaultOpen);
 
+  const asRecord = (v: T) => v as unknown as Record<string, string>;
+
   // Apenas campos cujo valor difere do default (e não é string vazia)
   const activeTags = fields.filter(
-    (f) => filters[f.key] !== '' && filters[f.key] !== undefined,
+    (f) => asRecord(filters)[f.key] !== '' && asRecord(filters)[f.key] !== undefined,
   );
 
   const hasActive = activeTags.length > 0;
 
   const set = (key: string, value: string) =>
-    onChange({ ...filters, [key]: value } as T);
+    onChange({ ...asRecord(filters), [key]: value } as unknown as T);
 
   const remove = (key: string) =>
-    onChange({ ...filters, [key]: defaults[key] ?? '' } as T);
+    onChange({ ...asRecord(filters), [key]: asRecord(defaults)[key] ?? '' } as unknown as T);
 
   const clearAll = () => onChange({ ...defaults });
 
   // ── Render de cada campo ────────────────────────────────────────────────────
   const renderField = (field: FilterFieldDef) => {
-    const value = filters[field.key] ?? '';
+    const value = asRecord(filters)[field.key] ?? '';
 
     if (field.type === 'select') {
       return (
-        <ComboBox
-          key={field.key}
-          placeholder={field.placeholder ?? field.label}
-          options={field.options ?? []}
-          value={value}
-          onChange={(v) => set(field.key, v as string)}
-        />
+        <div key={field.key} className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500">{field.label}</label>
+          <ComboBox
+            placeholder={field.placeholder ?? field.label}
+            options={field.options ?? []}
+            value={value}
+            onChange={(v) => set(field.key, v as string)}
+          />
+        </div>
       );
     }
 
     return (
-      <div key={field.key} className="relative">
-        {field.type === 'text' && (
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        )}
-        <input
-          type={field.type}
-          value={value}
-          placeholder={field.placeholder ?? `${field.label}...`}
-          min={field.type === 'number' ? 1 : undefined}
-          onChange={(e) => set(field.key, e.target.value)}
-          className={cn('input w-full', field.type === 'text' ? 'pl-9' : undefined)}
-        />
+      <div key={field.key} className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-500">{field.label}</label>
+        <div className="relative">
+          {field.type === 'text' && (
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          )}
+          <input
+            type={field.type}
+            value={value}
+            placeholder={field.placeholder ?? `${field.label}...`}
+            min={field.type === 'number' ? 1 : undefined}
+            onChange={(e) => set(field.key, e.target.value)}
+            className={cn('input w-full', field.type === 'text' ? 'pl-9' : undefined)}
+          />
+        </div>
       </div>
     );
   };
@@ -126,7 +133,7 @@ export function FilterBar<T extends Record<string, string>>({
                 className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-medium border border-blue-100"
               >
                 <span className="text-blue-400 font-normal">{field.label}:</span>
-                {displayValue(field, filters[field.key])}
+                {displayValue(field, asRecord(filters)[field.key])}
                 <button
                   type="button"
                   onClick={() => remove(field.key)}
