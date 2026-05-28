@@ -24,6 +24,11 @@ export class OrderLineDto {
 }
 
 export class CreateOrderDto {
+  @ApiPropertyOptional({ example: 42, description: 'ID do aluno recebedor (somente admin). Se omitido, usa o usuário autenticado.' })
+  @IsOptional()
+  @IsInt()
+  userId?: number;
+
   @ApiProperty({ type: [OrderLineDto], description: 'Itens solicitados no pedido' })
   @IsArray()
   @ValidateNested({ each: true })
