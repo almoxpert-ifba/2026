@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { ShipmentStatus, MovementType, MovementOrigin } from 'shared';
 import { Shipment } from './entities/shipment.entity';
@@ -28,7 +28,7 @@ export class ShipmentsService {
     private shipmentItemsRepo: Repository<ShipmentItem>,
     private stockService: StockService,
     private movementsService: MovementsService,
-    private dataSource: DataSource,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   async findAll(query: ShipmentsListQuery = {}) {

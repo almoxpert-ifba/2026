@@ -1,7 +1,7 @@
 import {
   Injectable, NotFoundException, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
+import { InjectRepository, InjectDataSource } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { OrderStatus, UserType, MovementType, MovementOrigin, JwtPayload } from 'shared';
 import { Order } from './entities/order.entity';
@@ -35,7 +35,7 @@ export class OrdersService {
     private stockService: StockService,
     private movementsService: MovementsService,
     private emailService: EmailService,
-    private dataSource: DataSource,
+    @InjectDataSource() private dataSource: DataSource,
   ) {}
 
   /** Students see only their own orders; admins see all */
