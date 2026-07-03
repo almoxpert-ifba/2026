@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Patch, Param, Body,
-  UseGuards, ParseIntPipe, Query, DefaultValuePipe,
+  Controller, Get, Post, Patch, Delete, Param, Body,
+  UseGuards, ParseIntPipe, Query, DefaultValuePipe, HttpCode,
 } from '@nestjs/common';
 import {
   ApiTags, ApiOperation, ApiResponse, ApiBearerAuth,
@@ -104,6 +104,34 @@ export class ItemsController {
   @ApiResponse({ status: 200, description: 'Item desativado.' })
   deactivate(@Param('id', ParseIntPipe) id: number) {
     return this.itemsService.deactivate(id);
+  }
+
+  @Delete(':id')
+  @Roles(UserType.ADMIN)
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Excluir item (somente se nunca entrou em estoque)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiResponse({ status: 204, description: 'Item excluído.' })
+  @ApiResponse({ status: 400, description: 'Item já entrou em estoque — não pode ser excluído; desative-o.' })
+  @ApiResponse({ status: 404, description: 'Item não encontrado.' })
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.itemsService.remove(id);
+  }
+
+  @Delete(':id/variations/:variationId')
+  @Roles(UserType.ADMIN)
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Excluir variação (somente se nunca entrou em estoque)' })
+  @ApiParam({ name: 'id', type: Number })
+  @ApiParam({ name: 'variationId', type: Number })
+  @ApiResponse({ status: 204, description: 'Variação excluída.' })
+  @ApiResponse({ status: 400, description: 'Variação já entrou em estoque — não pode ser excluída; desative-a.' })
+  @ApiResponse({ status: 404, description: 'Item ou variação não encontrado.' })
+  removeVariation(
+    @Param('id', ParseIntPipe)          itemId: number,
+    @Param('variationId', ParseIntPipe) variationId: number,
+  ) {
+    return this.itemsService.removeVariation(itemId, variationId);
   }
 
   @Post(':id/variations')

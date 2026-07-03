@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Package, Plus, Trash2 } from 'lucide-react';
+import { Package, Plus, Trash2, Lock, Info } from 'lucide-react';
 import { Modal } from '../../components/ui/Modal';
 import { Input, Select } from '../../components/ui/FormFields';
 import { Button } from '../../components/ui/Button';
@@ -26,6 +26,7 @@ interface ItemModalProps {
   onClose:             () => void;
   onSave:              (data: CreateItemDto) => Promise<void>;
   onToggleVariation?:  (variationId: number) => void;
+  onDeleteVariation?:  (variationId: number) => Promise<void>;
   onAddVariation?:     (description: string) => Promise<void>;
   item?:               Item | null;
   loading?:            boolean;
@@ -48,7 +49,7 @@ const sizeTypeOptions = [
 ];
 
 export const ItemModal: React.FC<ItemModalProps> = ({
-  open, onClose, onSave, onToggleVariation, onAddVariation, item, loading,
+  open, onClose, onSave, onToggleVariation, onDeleteVariation, onAddVariation, item, loading,
 }) => {
   const isEditing = !!item;
   const [newVariationDesc, setNewVariationDesc] = useState('');
@@ -155,19 +156,29 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               />
             )}
           />
-          <Controller
-            name="sizeType"
-            control={control}
-            render={({ field }) => (
-              <Select
-                label="Tipo de Tamanho"
-                options={sizeTypeOptions}
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={field.onBlur}
-              />
+          <div>
+            <Controller
+              name="sizeType"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  label="Tipo de Tamanho"
+                  options={sizeTypeOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  disabled={isEditing}
+                  className={isEditing ? 'opacity-60 cursor-not-allowed' : undefined}
+                />
+              )}
+            />
+            {isEditing && (
+              <p className="mt-1 flex items-start gap-1 text-xs text-gray-500">
+                <Lock size={12} className="mt-0.5 flex-shrink-0" />
+                <span>O tipo de tamanho compõe a chave de estoque (item, variação, tamanho) e não pode mudar após a criação — alterá-lo invalidaria o estoque já registrado.</span>
+              </p>
             )}
-          />
+          </div>
         </div>
 
         {sizePreview && (
@@ -182,21 +193,23 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             name="hasVariations"
             control={control}
             render={({ field }) => (
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className={`flex items-center gap-3 ${isEditing ? 'opacity-60' : ''}`}>
+                <label className={`flex items-center gap-2 ${isEditing ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="radio"
                     checked={!field.value}
                     onChange={() => field.onChange(false)}
+                    disabled={isEditing}
                     className="accent-blue-600"
                   />
                   <span className="text-sm text-gray-700">Não</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className={`flex items-center gap-2 ${isEditing ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="radio"
                     checked={field.value}
                     onChange={() => field.onChange(true)}
+                    disabled={isEditing}
                     className="accent-blue-600"
                   />
                   <span className="text-sm text-gray-700">Sim</span>
@@ -204,6 +217,18 @@ export const ItemModal: React.FC<ItemModalProps> = ({
               </div>
             )}
           />
+          {isEditing && (
+            <p className="mt-1 flex items-start gap-1 text-xs text-gray-500">
+              <Lock size={12} className="mt-0.5 flex-shrink-0" />
+              <span>Se o item usa variações é definido na criação e não pode mudar depois — alterar criaria saldos de estoque órfãos.</span>
+            </p>
+          )}
+          {!isEditing && (
+            <p className="mt-1 flex items-start gap-1 text-xs text-amber-600">
+              <Info size={12} className="mt-0.5 flex-shrink-0" />
+              <span>O tipo de tamanho e o uso de variações são definidos agora e <span className="font-semibold">não poderão ser alterados</span> após a criação.</span>
+            </p>
+          )}
         </div>
 
         {/* ── Variações: modo EDIÇÃO ── */}
@@ -221,26 +246,39 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   <span className={`text-sm font-medium flex-1 ${v.isActive ? 'text-gray-700' : 'text-gray-400 line-through'}`}>
                     {v.description}
                   </span>
-                  {/* Toggle switch */}
-                  {onToggleVariation && (
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className={`text-xs ${v.isActive ? 'text-emerald-600' : 'text-gray-400'}`}>
-                        {v.isActive ? 'Ativa' : 'Inativa'}
-                      </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* Toggle switch */}
+                    {onToggleVariation && (
+                      <>
+                        <span className={`text-xs ${v.isActive ? 'text-emerald-600' : 'text-gray-400'}`}>
+                          {v.isActive ? 'Ativa' : 'Inativa'}
+                        </span>
+                        <button
+                          type="button"
+                          title={v.isActive ? 'Desativar variação' : 'Ativar variação'}
+                          onClick={() => onToggleVariation(v.id)}
+                          className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
+                            v.isActive ? 'bg-emerald-500' : 'bg-gray-300'
+                          }`}
+                        >
+                          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
+                            v.isActive ? 'translate-x-4' : 'translate-x-0'
+                          }`} />
+                        </button>
+                      </>
+                    )}
+                    {/* Excluir variação (só se nunca entrou em estoque — validado no backend) */}
+                    {onDeleteVariation && (
                       <button
                         type="button"
-                        title={v.isActive ? 'Desativar variação' : 'Ativar variação'}
-                        onClick={() => onToggleVariation(v.id)}
-                        className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${
-                          v.isActive ? 'bg-emerald-500' : 'bg-gray-300'
-                        }`}
+                        title="Excluir variação (somente se nunca entrou em estoque)"
+                        onClick={() => onDeleteVariation(v.id)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-500Bg transition-colors"
                       >
-                        <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 ease-in-out ${
-                          v.isActive ? 'translate-x-4' : 'translate-x-0'
-                        }`} />
+                        <Trash2 size={14} />
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -267,6 +305,16 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                 </Button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── Item sem variações (edição): explica por que não pode adicionar ── */}
+        {isEditing && !hasVariations && (
+          <div className="flex items-start gap-2 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+            <Info size={14} className="mt-0.5 flex-shrink-0 text-gray-400" />
+            <span>
+              Este item foi criado <span className="font-semibold">sem variações</span>, então não é possível adicioná-las aqui — isso mudaria a chave de estoque e deixaria o estoque atual órfão. Para usar variações, cadastre um novo item marcando <span className="font-semibold">“Possui Variações: Sim”</span>.
+            </span>
           </div>
         )}
 

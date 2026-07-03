@@ -217,8 +217,10 @@ Reading is allowed for any authenticated user. Writing requires `admin`.
 | POST | `/items` | Admin | Create item |
 | PATCH | `/items/:id` | Admin | Update item |
 | PATCH | `/items/:id/toggle` | Admin | Toggle active/inactive |
+| DELETE | `/items/:id` | Admin | Delete item (only if not in use: no stock/orders/shipments) |
 | POST | `/items/:id/variations` | Admin | Add variation |
 | PATCH | `/items/:id/variations/:varId/toggle` | Admin | Toggle variation |
+| DELETE | `/items/:id/variations/:variationId` | Admin | Delete variation (only if not in use: no stock/orders/shipments) |
 
 ### POST `/items`
 
@@ -234,7 +236,26 @@ Reading is allowed for any authenticated user. Writing requires `admin`.
 
 `sizeType`: `"none"` | `"clothing"` | `"shoes"`
 
-> Items with `hasVariations: false` should **not** have variation entries. Variation is only for items where the user must choose (color, type, etc.). Size is handled separately via `sizeType`.
+### Item modeling rules (enforced)
+
+An item's stock key is `(item, variation, size)`. The two dimensions of that key — **variation** (`hasVariations`) and **size** (`sizeType`) — are fixed at creation and validated by the backend:
+
+- `POST /items/:id/variations` is **rejected** if the item was created with `hasVariations: false` (a size-based or dimensionless item cannot gain variations later — it would orphan its existing stock).
+- `PATCH /items/:id` **cannot change** `hasVariations` or `sizeType` after creation (same reason).
+- `POST /items` **rejects** a `variations` list when `hasVariations` is `false`.
+
+Valid combinations (chosen once, at creation):
+
+| hasVariations | sizeType | Stock key example |
+|---|---|---|
+| false | none | `(item, NULL, 'none')` |
+| false | clothing/shoes | `(item, NULL, 'M')` |
+| true | none | `(item, variationId, 'none')` |
+| true | clothing/shoes | `(item, variationId, 'M')` — every variation × size |
+
+Adding **more variations** later is allowed **only** for items created with `hasVariations: true`.
+
+**Deletion (`DELETE /items/:id`)** is rejected with `400` if the item is **in use** — i.e. it has stock/movements, or is referenced by any **order** (`order_items`) or **shipment** (`shipment_items`). Because those foreign keys are `ON DELETE CASCADE`, a hard delete would silently wipe stock history and order/shipment lines. For items in use, deactivate them (`PATCH /items/:id/deactivate`) instead. The **same rule applies to variation deletion** (`DELETE /items/:id/variations/:variationId`): rejected with `400` if the variation is referenced by stock/movements, orders or shipments; deactivate it (toggle) instead.
 
 ---
 
@@ -444,7 +465,7 @@ Stock-mutating endpoints are transactional and concurrency-safe:
 | `POST /orders`, `PATCH /orders/:id/review` | header + items | — |
 | `POST/PATCH/DELETE /shipments/:id` | header + items | — |
 
-- Implemented with TypeORM `DataSource.transaction` + `pessimistic_write` locking (no schema change).
+- Implemented with TypeORM `DataSource.transaction` (the `DataSource` is injected via `@InjectDataSource()`) + `pessimistic_write` locking (no schema change).
 - Side effects (e-mails) are dispatched **after** commit, never inside the transaction.
 - A failed transaction (e.g. `400 Insufficient stock`) leaves the database fully unchanged.
 

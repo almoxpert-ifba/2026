@@ -267,6 +267,16 @@ Props:
 3. Estoque debitado apenas para itens com `approvedQuantity > 0`
 4. E-mail de confirmação enviado ao aluno
 
+### Itens
+
+O **ItemModal** (compartilhado) trata criação e edição e reflete no front as regras de modelagem validadas no backend — a chave de estoque `(item, variação, tamanho)` é fixada na criação:
+
+- **Criação:** todos os campos livres. Um aviso informa que `Tipo de Tamanho` e `Possui Variações?` **não poderão ser alterados depois**.
+- **Edição:** `Tipo de Tamanho` e `Possui Variações?` ficam **desabilitados** (ícone de cadeado + motivo: alterá-los invalidaria o estoque existente).
+- **Item com variações** (`hasVariations = true`): permite ativar/desativar e **adicionar** variações na edição.
+- **Item sem variações** (`hasVariations = false`): bloco informativo explica que não é possível adicioná-las e orienta a criar um novo item como "de variação".
+- Erros vindos do backend são exibidos com a mensagem real (helper `backendMsg` na `ItemsPage`).
+
 ### Remessas
 
 - **ShipmentFormModal** unifica criação e edição. Recebe `shipment?: Shipment | null`:

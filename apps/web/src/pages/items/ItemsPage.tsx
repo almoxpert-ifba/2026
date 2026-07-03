@@ -24,6 +24,13 @@ const sizeTypeLabel: Record<string, string> = {
   none: '', clothing: 'Vestuário', shoes: 'Calçado',
 };
 
+/** Extrai a mensagem de erro enviada pelo backend (string ou array de validações). */
+const backendMsg = (err: any, fallback: string): string => {
+  const m = err?.response?.data?.message;
+  if (Array.isArray(m)) return m.join(' ');
+  return typeof m === 'string' && m.length ? m : fallback;
+};
+
 type OutletCtx = { onMenuClick: () => void };
 
 interface ItemFilters { name: string; type: string; isActive: string; }
@@ -67,14 +74,14 @@ export const ItemsPage: React.FC = () => {
   const createMutation = useMutation({
     mutationFn: itemsService.create,
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['items'] }); toast.success('Item criado!'); setModal(false); },
-    onError: () => toast.error('Erro ao criar item.'),
+    onError: (err: any) => toast.error(backendMsg(err, 'Erro ao criar item.')),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, dto }: { id: number; dto: Parameters<typeof itemsService.update>[1] }) =>
       itemsService.update(id, dto),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['items'] }); toast.success('Item atualizado!'); setModal(false); setEditItem(null); },
-    onError: () => toast.error('Erro ao atualizar item.'),
+    onError: (err: any) => toast.error(backendMsg(err, 'Erro ao atualizar item.')),
   });
 
   const toggleItemMutation = useMutation({
@@ -103,13 +110,23 @@ export const ItemsPage: React.FC = () => {
       qc.invalidateQueries({ queryKey: ['items'] });
       toast.success('Variação adicionada.');
     },
-    onError: () => toast.error('Erro ao adicionar variação.'),
+    onError: (err: any) => toast.error(backendMsg(err, 'Erro ao adicionar variação.')),
+  });
+
+  const removeVariationMutation = useMutation({
+    mutationFn: ({ itemId, variationId }: { itemId: number; variationId: number }) =>
+      itemsService.removeVariation(itemId, variationId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['items'] });
+      toast.success('Variação excluída.');
+    },
+    onError: (err: any) => toast.error(backendMsg(err, 'Erro ao excluir variação.')),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => itemsService.remove(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['items'] }); toast.success('Item removido.'); setDeleteItem(null); },
-    onError: () => toast.error('Erro ao remover item.'),
+    onError: (err: any) => toast.error(backendMsg(err, 'Erro ao remover item.')),
   });
 
   const handleSave = async (formData: Parameters<typeof itemsService.create>[0]) => {
@@ -276,7 +293,12 @@ export const ItemsPage: React.FC = () => {
         }
         onAddVariation={
           isAdmin && editItem
-            ? (description) => addVariationMutation.mutateAsync({ itemId: editItem.id, description })
+            ? (description) => addVariationMutation.mutateAsync({ itemId: editItem.id, description }).then(() => {})
+            : undefined
+        }
+        onDeleteVariation={
+          isAdmin && editItem
+            ? (variationId) => removeVariationMutation.mutateAsync({ itemId: editItem.id, variationId }).then(() => {})
             : undefined
         }
       />

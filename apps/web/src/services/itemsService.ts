@@ -57,4 +57,8 @@ export const itemsService = {
   async remove(id: number): Promise<void> {
     await api.delete(`/items/${id}`);
   },
+
+  async removeVariation(itemId: number, variationId: number): Promise<void> {
+    await api.delete(`/items/${itemId}/variations/${variationId}`);
+  },
 };

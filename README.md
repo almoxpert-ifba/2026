@@ -272,9 +272,13 @@ GET    /items/:id                           # Buscar por ID
 POST   /items                              # Criar (Admin)
 PATCH  /items/:id                          # Atualizar (Admin)
 PATCH  /items/:id/toggle                   # Ativar / desativar (Admin)
+DELETE /items/:id                          # Excluir (Admin) — só se não estiver em uso (estoque/pedidos/remessas)
 POST   /items/:id/variations               # Adicionar variação (Admin)
 PATCH  /items/:id/variations/:varId/toggle # Ativar / desativar variação (Admin)
+DELETE /items/:id/variations/:varId        # Excluir variação (Admin) — só se não estiver em uso (estoque/pedidos/remessas)
 ```
+
+> **Regra de modelagem (validada no backend):** as dimensões da chave de estoque `(item, variação, tamanho)` são fixadas na criação. Não é possível adicionar variações a um item criado com `hasVariations: false`, nem alterar `hasVariations`/`sizeType` depois — isso invalidaria o estoque existente. Adicionar mais variações só é permitido em itens criados como "de variação". A **exclusão** (`DELETE /items/:id`) — e a de variação (`DELETE /items/:id/variations/:varId`) — só é permitida se o alvo **não estiver em uso**: sem estoque/movimentações **e** não vinculado a nenhum **pedido** ou **remessa**. Caso contrário, use a **desativação** para preservar o histórico.
 
 ### Estoque `(Admin)`
 
@@ -448,7 +452,7 @@ Get-Content database/migration_v9.sql | docker exec -i almoxpert_db_dev mysql -u
 
 ## Atomicidade e Controle de Concorrência
 
-As operações que alteram o estoque e geram a trilha de auditoria são **transacionais**. Cada baixa/entrada de estoque, o respectivo movimento e a mudança de status são gravados dentro de uma única transação (`DataSource.transaction`): uma falha no meio do laço sofre *rollback* completo, então nunca existe estado parcialmente aplicado (ex.: estoque debitado sem o movimento correspondente registrado).
+As operações que alteram o estoque e geram a trilha de auditoria são **transacionais**. Cada baixa/entrada de estoque, o respectivo movimento e a mudança de status são gravados dentro de uma única transação (`DataSource.transaction`, com o `DataSource` injetado via `@InjectDataSource()`): uma falha no meio do laço sofre *rollback* completo, então nunca existe estado parcialmente aplicado (ex.: estoque debitado sem o movimento correspondente registrado).
 
 Para evitar **condições de corrida** (dois processos lendo o mesmo saldo e ambos debitando), a leitura da linha de estoque dentro da transação adquire um **lock pessimista de escrita** (`SELECT ... FOR UPDATE`). Isso serializa mutações concorrentes sobre o mesmo item e impede que o disponível fique negativo / haja baixa além do estoque.
 
