@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Search, SlidersHorizontal, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { cn } from '../../utils';
 import { ComboBox } from './ComboBox';

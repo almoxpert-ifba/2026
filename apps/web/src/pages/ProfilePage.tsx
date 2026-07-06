@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Menu, Lock, Eye, EyeOff, Shield, GraduationCap, Bell, Download } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -38,29 +38,10 @@ const InfoRow: React.FC<{ label: string; value?: string | number | null; span?: 
   </div>
 );
 
-const BadgeRow: React.FC<{ label: string; items: string[]; color?: string }> = ({
-  label, items, color = 'bg-blue-100 text-blue-700',
-}) => (
-  <div className="py-3 border-b border-gray-100 sm:col-span-2">
-    <p className="text-xs text-gray-400 mb-1.5">{label}</p>
-    {items.length > 0 ? (
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((item) => (
-          <span key={item} className={`text-xs px-2.5 py-1 rounded-full font-medium ${color}`}>
-            {item}
-          </span>
-        ))}
-      </div>
-    ) : (
-      <p className="text-sm font-medium text-gray-800">—</p>
-    )}
-  </div>
-);
-
 export const ProfilePage: React.FC = () => {
   const { onMenuClick } = useOutletContext<OutletCtx>();
   const { user: authUser, setMustChangePassword } = useAuthStore();
-  const { addToast } = useToast();
+  const toast = useToast();
   const queryClient = useQueryClient();
 
   const [showCurrent, setShowCurrent] = useState(false);
@@ -76,10 +57,10 @@ export const ProfilePage: React.FC = () => {
     mutationFn: (val: boolean) => authService.updatePreferences(val),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['me'] });
-      addToast({ type: 'success', title: 'Preferência de e-mails atualizada.' });
+      toast.success('Preferência de e-mails atualizada.');
     },
     onError: () => {
-      addToast({ type: 'error', title: 'Erro ao atualizar preferência.' });
+      toast.error('Erro ao atualizar preferência.');
     },
   });
 
@@ -92,10 +73,10 @@ export const ProfilePage: React.FC = () => {
       await authService.changePassword(data.currentPassword, data.newPassword);
       setMustChangePassword(false);
       reset();
-      addToast({ type: 'success', title: 'Senha alterada com sucesso!' });
+      toast.success('Senha alterada com sucesso!');
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      addToast({ type: 'error', title: msg || 'Senha atual incorreta ou erro ao alterar.' });
+      toast.error(msg || 'Senha atual incorreta ou erro ao alterar.');
     }
   };
 

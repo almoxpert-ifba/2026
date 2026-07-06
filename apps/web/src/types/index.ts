@@ -191,7 +191,7 @@ export interface Shipment {
 
 export interface ShipmentLineDto {
   itemId: number;
-  variationId: number;
+  variationId?: number;
   size: string;
   quantity: number;
 }
@@ -230,7 +230,7 @@ export interface Order {
 
 export interface OrderLineDto {
   itemId: number;
-  variationId: number;
+  variationId?: number;
   size: string;
   requestedQuantity: number;
 }

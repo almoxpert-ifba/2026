@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { TruckIcon, Pencil } from 'lucide-react';
@@ -39,7 +39,7 @@ const EMPTY_LINE: FormLine = { itemId: '', variationId: '', size: '', quantity: 
 function ShipmentFormLines({
   fields, register, control, setValue, errors, remove, append, initialItems,
 }: {
-  fields:        ReturnType<typeof useFieldArray>['fields'];
+  fields:        Array<{ id: string }>;
   register:      any;
   control:       any;
   setValue:      any;
@@ -244,7 +244,7 @@ export const ShipmentFormModal: React.FC<ShipmentFormModalProps> = ({
       notes: d.notes,
       items: d.items.map((i) => ({
         itemId:      Number(i.itemId),
-        variationId: i.variationId ? Number(i.variationId) : undefined,
+        ...(i.variationId ? { variationId: Number(i.variationId) } : {}),
         size:        i.size || 'none',
         quantity:    i.quantity,
       })),

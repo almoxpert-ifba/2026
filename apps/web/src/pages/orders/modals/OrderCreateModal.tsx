@@ -77,7 +77,7 @@ export const OrderCreateModal: React.FC<OrderCreateModalProps> = ({
     const dto: CreateOrderDto = {
       items: d.items.map((i) => ({
         itemId:            Number(i.itemId),
-        variationId:       i.variationId ? Number(i.variationId) : undefined,
+        ...(i.variationId ? { variationId: Number(i.variationId) } : {}),
         size:              i.size || 'none',
         requestedQuantity: i.requestedQuantity,
       })),

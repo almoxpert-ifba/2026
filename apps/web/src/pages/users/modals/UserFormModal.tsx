@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Users, Pencil } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -59,19 +59,15 @@ type UserFormModalProps =
 
 const CREATE_FORM_ID = 'user-create-form-modal';
 
-function CreateUserForm({ onSave, loading, onClose }: {
+function CreateUserForm({ onSave }: {
   onSave: (dto: CreateUserDto) => void;
-  loading: boolean;
-  onClose: () => void;
 }) {
-  const { register, handleSubmit, watch, reset, setValue, formState: { errors } } = useForm<CreateForm>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
     defaultValues: { userType: 'student', aids: [] },
   });
   const watchType = watch('userType');
   const watchAids = watch('aids') ?? [];
-
-  const handleClose = () => { reset(); onClose(); };
 
   const onSubmit = (d: CreateForm) => {
     const base = {
@@ -177,7 +173,7 @@ function CreateUserForm({ onSave, loading, onClose }: {
 
 const EDIT_FORM_ID = 'user-edit-form-modal';
 
-function EditUserForm({ user, onSave, loading }: { user: User; onSave: (dto: UpdateUserDto) => void; loading: boolean }) {
+function EditUserForm({ user, onSave }: { user: User; onSave: (dto: UpdateUserDto) => void }) {
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
   });
@@ -267,8 +263,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = (props) => {
       </>}
     >
       {isEditing
-        ? <EditUserForm user={props.user} onSave={props.onSave as (dto: UpdateUserDto) => void} loading={props.loading} />
-        : <CreateUserForm onSave={props.onSave as (dto: CreateUserDto) => void} loading={props.loading} onClose={props.onClose} />
+        ? <EditUserForm user={props.user} onSave={props.onSave as (dto: UpdateUserDto) => void} />
+        : <CreateUserForm onSave={props.onSave as (dto: CreateUserDto) => void} />
       }
     </Modal>
   );
