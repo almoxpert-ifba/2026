@@ -13,6 +13,8 @@ RUN yarn workspace @almoxpert/web build
 
 FROM nginx:alpine
 COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+# Config do Nginx: escuta na porta 8000 e faz o fallback de SPA para /index.html
+COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8000
 
 CMD ["nginx", "-g", "daemon off;"]
